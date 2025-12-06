@@ -1,0 +1,11 @@
+# Introduction to ETL Validation
+
+Data quality is a product requirement, not an afterthought. A pragmatic ETL validation pass should check:
+
+- **Schema & contracts**: breaking changes detected before publish
+- **Nullability & ranges**: protect business-critical dimensions
+- **Freshness**: alerts if data lags behind SLA
+- **Referential integrity**: dimension keys must exist
+
+> Guardrail: fail fast, log context, and provide a rollback path for pipelines that can’t proceed safely.
+

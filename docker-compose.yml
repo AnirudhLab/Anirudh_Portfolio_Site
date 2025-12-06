@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:1337
+    command: npm run dev
+    depends_on: []
+
+  cms:
+    build:
+      context: ./cms
+    working_dir: /app
+    volumes:
+      - ./cms:/app
+    command: npm run develop
+    ports:
+      - "1337:1337"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 1337
+      APP_KEYS: placeholder_app_keys
+      API_TOKEN_SALT: placeholder_api_salt
+      ADMIN_JWT_SECRET: placeholder_admin_jwt
+      JWT_SECRET: placeholder_jwt
+      DATABASE_CLIENT: sqlite
+      DATABASE_FILENAME: /app/.tmp/data.db
+      FRONTEND_URL: http://localhost:3000
+    depends_on: []
+
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: strapi
+      POSTGRES_PASSWORD: strapi
+      POSTGRES_DB: strapi
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data: {}
+

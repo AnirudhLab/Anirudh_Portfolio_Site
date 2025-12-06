@@ -1,0 +1,411 @@
+{
+  "project": "AnirudhLabs - Full Build & GCP Deploy",
+  "description": "Cursor workflow to build www.anirudhlabs.in (Next.js frontend + Strapi CMS) and deploy both services to Google Cloud Run. Step-by-step tasks from repo creation through CI/CD and domain mapping. Supports multiple Cursor agents and includes a Cursor Rules file for agent coordination.",
+  "owner": "Anirudh Patil",
+  "repo_url": "",
+  "sprints": [
+    {
+      "name": "Sprint 0 - Repo & Project Setup",
+      "duration_days": 2,
+      "priority": "blocker",
+      "cards": [
+        {
+          "title": "Create GitHub repository and branch policy",
+          "assignee": "Anirudh Patil",
+          "tags": ["infra","git","setup"],
+          "description": "Create a new GitHub repo `anirudhlabs-site` with `dev` and protected `main`. Add README, license and basic issue templates.",
+          "checklist": [
+            "Create repo `anirudhlabs-site`",
+            "Add README.md with project summary",
+            "Add LICENSE (MIT) and CODE_OF_CONDUCT.md",
+            "Create `dev` branch and protect `main` requiring PR reviews and passing CI",
+            "Add CODEOWNERS file to require review"
+          ],
+          "acceptance_criteria": "Repo exists with `dev` as working branch, protection on `main`, and initial README."
+        },
+        {
+          "title": "Create GCP project & enable APIs",
+          "assignee": "Infra-Agent",
+          "tags": ["gcp","infra"],
+          "description": "Create a Google Cloud Project (id: anirudhlabs-prod-<random>) and enable required APIs: Cloud Run, Cloud Build, Artifact Registry, Cloud SQL Admin, Secret Manager, Cloud DNS, Cloud Storage, IAM.",
+          "checklist": [
+            "Create GCP project with billing enabled",
+            "Enable APIs: Cloud Run, Cloud Build, Artifact Registry, Cloud SQL Admin, Secret Manager, Cloud DNS, Cloud Storage, IAM",
+            "Create service account `ci-deployer@<project>.iam.gserviceaccount.com` with roles: Cloud Run Admin, Storage Admin, Cloud Build Editor, Artifact Registry Writer, Cloud SQL Client",
+            "Store service account key in Secret Manager and GitHub secret"
+          ],
+          "acceptance_criteria": "GCP project exists, APIs enabled and service account created."
+        },
+        {
+          "title": "Verify domain & DNS access (anirudhlabs.in)",
+          "assignee": "Ops-Agent",
+          "tags": ["dns","domain"],
+          "description": "Confirm ownership of `anirudhlabs.in` and ensure access to DNS provider console (Cloudflare/Namecheap/GoDaddy). Document registrar details.",
+          "checklist": [
+            "Confirm domain ownership of `anirudhlabs.in`",
+            "Confirm DNS provider and login credentials stored securely",
+            "Add a note with domain registrar details in project docs"
+          ],
+          "acceptance_criteria": "Domain ownership confirmed and DNS console access verified."
+        }
+      ]
+    },
+    {
+      "name": "Sprint 1 - Starter Scaffold (Frontend + CMS)",
+      "duration_days": 3,
+      "priority": "high",
+      "cards": [
+        {
+          "title": "Scaffold Next.js frontend",
+          "assignee": "Frontend-Agent",
+          "tags": ["frontend","nextjs","tailwind"],
+          "description": "Create a Next.js project in `/frontend` with TypeScript, Tailwind CSS, MDX support, glass-gradient theme tokens, basic pages: /, /about, /projects, /articles, /sops. Include `next.config.js` with security headers and `server.js` for Cloud Run.",
+          "checklist": [
+            "npx create-next-app --ts in /frontend",
+            "Install Tailwind & configure theme tokens (glass gradient variables)",
+            "Add MDX support for articles and SOP content",
+            "Create base components: Header, Footer, Hero, Card, Timeline",
+            "Add sample About page that links to downloadable resume (pdf)",
+            "Add next.config.js headers for HSTS, CSP and others"
+          ],
+          "acceptance_criteria": "Frontend builds locally (npm run dev) and shows homepage + About."
+        },
+        {
+          "title": "Scaffold Strapi CMS",
+          "assignee": "CMS-Agent",
+          "tags": ["cms","strapi"],
+          "description": "Initialize Strapi project in `/cms`. Create content-types: Project, Article, SOP, Resume (singleType). Configure upload plugin to use local provider initially; add CORS for frontend origin.",
+          "checklist": [
+            "npx create-strapi-app cms --quickstart (or manual setup) in /cms",
+            "Create content-types and fields: Project (title, slug, summary, body, tags, images, metrics), Article (title, slug, body, tags), SOP (title, version, steps), Resume (file, summary)",
+            "Create admin user and verify admin UI at http://localhost:1337/admin",
+            "Configure CORS to allow frontend origin (http://localhost:3000)"
+          ],
+          "acceptance_criteria": "Strapi admin accessible locally and content types created."
+        },
+        {
+          "title": "Add Dockerfiles and docker-compose",
+          "assignee": "Infra-Agent",
+          "tags": ["docker","infra"],
+          "description": "Add production-ready Dockerfiles for frontend and cms, and a docker-compose for local development connecting Strapi (Postgres) and Frontend.",
+          "checklist": [
+            "Add `/frontend/Dockerfile` with build + runtime stages",
+            "Add `/cms/Dockerfile` for Strapi",
+            "Add `docker-compose.yml` to run frontend, cms, and postgres locally",
+            "Test docker-compose up and verify both services run"
+          ],
+          "acceptance_criteria": "Both services run via docker-compose and accessible."
+        }
+      ]
+    },
+    {
+      "name": "Sprint 2 - Local Content & CI",
+      "duration_days": 3,
+      "priority": "high",
+      "cards": [
+        {
+          "title": "Create sample Projects & Articles",
+          "assignee": "Content-Agent",
+          "tags": ["content"],
+          "description": "Populate CMS (or MDX) with 3 projects and 2 articles derived from resume. Each project must have measurable results and tech stack tags.",
+          "checklist": [
+            "Write project 1: ETL validation pipeline (problem, approach, results)",
+            "Write project 2: Airflow orchestration + monitoring",
+            "Write project 3: QA automation & CI/CD integration",
+            "Publish 2 articles: Introduction to ETL validation and Designing QA automation frameworks",
+            "Verify projects appear in frontend via API"
+          ],
+          "acceptance_criteria": "3 projects and 2 articles visible on /projects and /articles pages without code deploy (runtime fetch)."
+        },
+        {
+          "title": "Set up GitHub Actions CI to build and test",
+          "assignee": "CI-Agent",
+          "tags": ["ci","github-actions"],
+          "description": "Add CI workflow to run lint, typecheck, build frontend and run Strapi smoke test on PRs to dev branch.",
+          "checklist": [
+            "Add `.github/workflows/ci.yml` to run npm install, lint, build for frontend",
+            "Add smoke-start test for Strapi service",
+            "Require CI passing to merge to main"
+          ],
+          "acceptance_criteria": "CI pipeline runs on PR and passes build step."
+        }
+      ]
+    },
+    {
+      "name": "Sprint 3 - Cloud SQL, GCS & Secrets (staging)",
+      "duration_days": 3,
+      "priority": "critical",
+      "cards": [
+        {
+          "title": "Provision Cloud SQL (Postgres) and GCS bucket",
+          "assignee": "Infra-Agent",
+          "tags": ["gcp","db","storage"],
+          "description": "Create a Postgres instance for Strapi and a GCS bucket for media uploads. Create a service account with appropriate roles and store key in Secret Manager.",
+          "checklist": [
+            "Create Cloud SQL Postgres instance with instance connection name",
+            "Create DB user and database `strapi`",
+            "Create GCS bucket `anirudhlabs-media`",
+            "Create service account `strapi-gcs-sa@<project>.iam.gserviceaccount.com` and grant Storage Admin role",
+            "Add service account key to Secret Manager and grant Cloud Run service account access"
+          ],
+          "acceptance_criteria": "Cloud SQL reachable from Cloud Run via connector and GCS bucket accessible by Strapi service account."
+        },
+        {
+          "title": "Configure Strapi for Cloud SQL & GCS in env",
+          "assignee": "CMS-Agent",
+          "tags": ["cms","env"],
+          "description": "Update Strapi `database.js` to use Cloud SQL connection string and configure upload provider to GCS using service account credentials from Secret Manager.",
+          "checklist": [
+            "Set DATABASE_URL to use Cloud SQL connection (cloudsql instance connection name)",
+            "Set GCS credentials from Secret Manager in Strapi env",
+            "Test Strapi can connect to DB and upload media to GCS locally (using service account)"
+          ],
+          "acceptance_criteria": "Strapi connects to cloud sql and can store/retrieve media from GCS."
+        }
+      ]
+    },
+    {
+      "name": "Sprint 4 - Build & Deploy to Cloud Run (staging)",
+      "duration_days": 2,
+      "priority": "critical",
+      "cards": [
+        {
+          "title": "Build & push container images using Cloud Build",
+          "assignee": "CI-Agent",
+          "tags": ["gcp","cloud-build","artifact-registry"],
+          "description": "Use Cloud Build to build and push frontend and cms images to Artifact Registry.",
+          "checklist": [
+            "Create Artifact Registry repositories for frontend and cms",
+            "Add cloudbuild YAML to build images and tag with commit sha",
+            "Trigger Cloud Build on push to `dev` branch",
+            "Verify images are created in Artifact Registry"
+          ],
+          "acceptance_criteria": "Images available in Artifact Registry after Cloud Build."
+        },
+        {
+          "title": "Deploy Strapi to Cloud Run (staging) with Cloud SQL",
+          "assignee": "Infra-Agent",
+          "tags": ["cloud-run","cms","db"],
+          "description": "Deploy the Strapi image to Cloud Run and connect Cloud SQL using the `--add-cloudsql-instances` flag. Set environment variables via Secret Manager.",
+          "checklist": [
+            "gcloud run deploy anirudhlabs-cms --image <artifact-registry-url> --add-cloudsql-instances=<INSTANCE_CONNECTION_NAME> --region=us-central1 --allow-unauthenticated",
+            "Set env vars: DATABASE_URL (cloudsql), STRAPI_ADMIN_JWT_SECRET, JWT_SECRET",
+            "Confirm admin UI reachable at https://cms-<...>.run.app/admin",
+            "Upload sample media and verify persistence in GCS"
+          ],
+          "acceptance_criteria": "Strapi admin accessible on Cloud Run and connected to Cloud SQL and GCS."
+        },
+        {
+          "title": "Deploy Frontend to Cloud Run (staging)",
+          "assignee": "Infra-Agent",
+          "tags": ["cloud-run","frontend"],
+          "description": "Deploy Next.js frontend to Cloud Run using production build; configure `NEXT_PUBLIC_API_URL` to point to the Strapi Cloud Run service URL. Use server.js to bind to $PORT.",
+          "checklist": [
+            "gcloud run deploy anirudhlabs-frontend --image <artifact-registry-url> --region=us-central1 --allow-unauthenticated --set-env-vars NEXT_PUBLIC_API_URL=https://cms-<...>.run.app",
+            "Visit frontend staging URL and verify it fetches content from Strapi",
+            "Enable Cloud Run automatic HTTPS"
+          ],
+          "acceptance_criteria": "Frontend accessible and renders projects/articles from the deployed Strapi instance."
+        }
+      ]
+    },
+    {
+      "name": "Sprint 5 - Domain Mapping, DNS & SSL",
+      "duration_days": 2,
+      "priority": "high",
+      "cards": [
+        {
+          "title": "Map custom domain to frontend Cloud Run service",
+          "assignee": "Ops-Agent",
+          "tags": ["dns","cloud-run","domain"],
+          "description": "Add domain mapping in Cloud Run console for `www.anirudhlabs.in`. Verify domain ownership via TXT record and create DNS records as instructed.",
+          "checklist": [
+            "In Cloud Run -> Domain mappings -> Add mapping for `www.anirudhlabs.in`",
+            "Add TXT record to DNS provider to verify ownership",
+            "Add A or CNAME records as provided by Cloud Run",
+            "Wait for SSL cert provisioning and confirm HTTPS works"
+          ],
+          "acceptance_criteria": "https://www.anirudhlabs.in serves the frontend over HTTPS."
+        },
+        {
+          "title": "Secure Strapi admin access",
+          "assignee": "Security-Agent",
+          "tags": ["security","cms"],
+          "description": "Protect Strapi admin UI either via Cloud IAP or by limiting access to known admin IPs and enabling strong passwords + 2FA for admin users.",
+          "checklist": [
+            "Decide on protection method (IAP or IP whitelist)",
+            "If using IAP, enable IAP and configure OAuth client",
+            "Enforce strong password policy and enable 2FA for admin accounts"
+          ],
+          "acceptance_criteria": "Strapi admin is not publicly writable and requires auth via chosen protection method."
+        }
+      ]
+    },
+    {
+      "name": "Sprint 6 - CI/CD: GitHub Actions to Cloud Build/Cloud Run",
+      "duration_days": 3,
+      "priority": "high",
+      "cards": [
+        {
+          "title": "GitHub Actions -> trigger Cloud Build",
+          "assignee": "CI-Agent",
+          "tags": ["ci","cloud-build"],
+          "description": "Add GitHub Actions workflow that triggers Cloud Build on push to `main`. Cloud Build will build images and deploy Cloud Run services automatically.",
+          "checklist": [
+            "Create GCP service account key and store in GitHub Secrets",
+            "Add GitHub Actions workflow `.github/workflows/deploy.yml` that calls gcloud or triggers Cloud Build API",
+            "Test by merging dev -> main and verify deployment"
+          ],
+          "acceptance_criteria": "Merging to `main` triggers CI which builds images and deploys to Cloud Run."
+        },
+        {
+          "title": "Add healthchecks and logging",
+          "assignee": "Infra-Agent",
+          "tags": ["observability"],
+          "description": "Add readiness routes, integrate Sentry for errors, and ensure logs flow to Cloud Logging. Create basic uptime check (Cloud Monitoring).",
+          "checklist": [
+            "Add /health endpoint for frontend and cms",
+            "Integrate Sentry DSN in both services for error capture",
+            "Configure Cloud Monitoring uptime check"
+          ],
+          "acceptance_criteria": "Sentry receives test events and Cloud Monitoring shows service as healthy."
+        }
+      ]
+    },
+    {
+      "name": "Sprint 7 - Admin Workflows & Automation (n8n)",
+      "duration_days": 3,
+      "priority": "medium",
+      "cards": [
+        {
+          "title": "Deploy n8n to Cloud Run",
+          "assignee": "Automation-Agent",
+          "tags": ["automation","n8n"],
+          "description": "Containerize n8n and deploy to Cloud Run. Secure with auth. Configure webhook endpoint for Strapi publish events.",
+          "checklist": [
+            "Create n8n image and push to Artifact Registry",
+            "Deploy to Cloud Run with env variables for encryption keys",
+            "Set basic auth or token for webhook security"
+          ],
+          "acceptance_criteria": "n8n runs and accepts authenticated webhook requests from Strapi."
+        },
+        {
+          "title": "Workflow: CMS publish -> Telegram + LinkedIn draft",
+          "assignee": "Automation-Agent",
+          "tags": ["automation","social"],
+          "description": "Create an n8n workflow: on publish webhook -> generate short snippet (templated) -> post to Telegram channel; create draft/preview for LinkedIn (store result in Airtable or as draft in GitHub PR).",
+          "checklist": [
+            "Webhook in Strapi to call n8n on publish",
+            "n8n node to format snippet using CMS fields",
+            "n8n Telegram node to send message to channel",
+            "n8n action to create LinkedIn draft (or store in repo)"
+          ],
+          "acceptance_criteria": "Publishing content triggers Telegram message and a LinkedIn draft is generated."
+        }
+      ]
+    },
+    {
+      "name": "Sprint 8 - Harden & Launch",
+      "duration_days": 3,
+      "priority": "release",
+      "cards": [
+        {
+          "title": "Security review & pen-test checklist",
+          "assignee": "Security-Agent",
+          "tags": ["security"],
+          "description": "Run through a small security checklist: secret rotation, IAM least privilege, remove public DB access, enable HTTPS, check CORS policies.",
+          "checklist": [
+            "Rotate keys in Secret Manager",
+            "Ensure Cloud SQL does not allow public access",
+            "Lock down IAM roles and service accounts",
+            "Confirm HTTPS on frontend domain"
+          ],
+          "acceptance_criteria": "Pen-test checklist items verified and documented."
+        },
+        {
+          "title": "Final launch tasks",
+          "assignee": "Ops-Agent",
+          "tags": ["launch"],
+          "description": "DNS final switch (if needed), monitor first 24 hours for errors, set SLOs and rollback plan.",
+          "checklist": [
+            "If using a temporary domain for staging, switch DNS to production mapping",
+            "Run smoke tests for critical flows (home, projects, admin login) post-launch",
+            "Document rollback steps and validate backups"
+          ],
+          "acceptance_criteria": "Site live at https://www.anirudhlabs.in, smoke tests pass and monitoring alerts set."
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "recommended_region": "us-central1",
+    "secrets_to_store": [
+      "GCP_SA_KEY",
+      "STRAPI_ADMIN_JWT_SECRET",
+      "JWT_SECRET",
+      "NEXT_PUBLIC_API_URL",
+      "TWILIO_SID",
+      "TWILIO_AUTH_TOKEN",
+      "TELEGRAM_BOT_TOKEN",
+      "LINKEDIN_CLIENT_ID",
+      "LINKEDIN_CLIENT_SECRET"
+    ],
+    "sample_commands": {
+      "build_frontend": "gcloud builds submit --tag gcr.io/$PROJECT/anirudhlabs-frontend:latest ./frontend",
+      "deploy_frontend": "gcloud run deploy anirudhlabs-frontend --image gcr.io/$PROJECT/anirudhlabs-frontend:latest --region=us-central1 --allow-unauthenticated --set-env-vars NEXT_PUBLIC_API_URL=https://cms-<project>-uc.run.app",
+      "build_cms": "gcloud builds submit --tag gcr.io/$PROJECT/anirudhlabs-cms:latest ./cms",
+      "deploy_cms": "gcloud run deploy anirudhlabs-cms --image gcr.io/$PROJECT/anirudhlabs-cms:latest --region=us-central1 --add-cloudsql-instances=$CLOUDSQL_INSTANCE --allow-unauthenticated --set-env-vars DATABASE_URL=postgres://$DB_USER:$DB_PASS@/dbname?host=/cloudsql/$CLOUDSQL_INSTANCE"
+    }
+  },
+  "cursor_rules": {
+    "description": "Rules for coordinating multiple Cursor agents working on this project.",
+    "version": "1.0",
+    "rules": [
+      {
+        "id": "rule-1",
+        "title": "Agent responsibilities & ownership",
+        "description": "Each agent must set 'assignee' on cards it claims. Agents may only work on cards assigned to them or explicitly claimed via a PR comment.",
+        "enforcement": "soft",
+        "actions": ["claim_card","post_status_update"]
+      },
+      {
+        "id": "rule-2",
+        "title": "PR & Code Review policy",
+        "description": "All code changes must be merged via PR into `dev`. Main protected requiring 1 reviewer and passing CI. Agents should add a short summary and link to related card in PR description.",
+        "enforcement": "strict",
+        "actions": ["require_pr","require_ci_pass"]
+      },
+      {
+        "id": "rule-3",
+        "title": "Environment & Secrets handling",
+        "description": "No agent should commit secrets to repo. Use GitHub secrets and GCP Secret Manager. Agents must reference secret keys via env var names only.",
+        "enforcement": "strict",
+        "actions": ["no_secrets_in_code","use_secret_manager"]
+      },
+      {
+        "id": "rule-4",
+        "title": "Deployment approval",
+        "description": "Deploy to production (Cloud Run with domain mapping) requires explicit approval by 'owner' or 'Ops-Agent' in Cursor; CI must be green.",
+        "enforcement": "strict",
+        "actions": ["require_manual_approval","check_ci"]
+      },
+      {
+        "id": "rule-5",
+        "title": "Quality & Testing",
+        "description": "Every feature card must include acceptance criteria; at least one E2E smoke test must pass before marking done.",
+        "enforcement": "soft",
+        "actions": ["attach_tests","e2e_smoke"]
+      }
+    ],
+    "agent_roles": {
+      "Frontend-Agent": "Responsible for Next.js UI, components, styling and client integration.",
+      "CMS-Agent": "Responsible for Strapi models, plugins, CORS, and content migration.",
+      "Infra-Agent": "Responsible for Dockerfiles, CI, Cloud Build, Artifact Registry, and Cloud Run deployments.",
+      "CI-Agent": "Responsible for GitHub Actions, Cloud Build triggers and CI quality gates.",
+      "Automation-Agent": "Responsible for n8n workflows and social automation (later phases).",
+      "Security-Agent": "Responsible for IAP, secrets, role bindings, and security checks.",
+      "Content-Agent": "Responsible for writing initial content (projects, articles, SOPs).",
+      "Ops-Agent": "Responsible for DNS, domain mapping and DNS record updates."
+    }
+  }
+}

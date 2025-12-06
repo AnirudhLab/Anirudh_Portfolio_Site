@@ -1,0 +1,28 @@
+{
+  "kind": "collectionType",
+  "collectionName": "sops",
+  "info": {
+    "singularName": "sop",
+    "pluralName": "sops",
+    "displayName": "SOP"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "version": {
+      "type": "string"
+    },
+    "steps": {
+      "type": "json"
+    },
+    "tags": {
+      "type": "json"
+    }
+  }
+}
+
