@@ -50,3 +50,30 @@ gcloud run deploy anirudhlabs-frontend \
 - Map `www.anirudhlabs.in` to frontend Cloud Run service via Domain Mappings.
 - Ensure SSL provisioned; update DNS per mapping instructions.
 
+## GitHub Actions deployment (Cloud Run)
+The workflow `.github/workflows/deploy-gcp.yml` builds images with Cloud Build and deploys to Cloud Run.
+
+Required GitHub variables (`Repository > Settings > Variables > Actions`):
+- `GCP_PROJECT_ID` — target project
+- `GCP_REGION` — e.g. `us-central1`
+- `GCP_ARTIFACT_REGISTRY_REPO` — e.g. `anirudhlabs`
+- `GCP_FRONTEND_SERVICE` — Cloud Run service name for frontend
+- `GCP_CMS_SERVICE` — Cloud Run service name for CMS
+- `GCP_CLOUD_SQL_CONNECTION` — Cloud SQL instance connection string `project:region:instance`
+- `FRONTEND_URL` — canonical site URL (e.g. `https://www.anirudhlabs.in`)
+- `NEXT_PUBLIC_API_URL` — public API URL for the frontend (or set as secret)
+
+Required GitHub secrets (`Repository > Settings > Secrets > Actions`):
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` — workload identity provider resource
+- `GCP_SERVICE_ACCOUNT` — deployer service account email
+- `CMS_APP_KEYS`, `CMS_API_TOKEN_SALT`, `CMS_ADMIN_JWT_SECRET`, `CMS_JWT_SECRET`
+- `DB_NAME`, `DB_USER`, `DB_PASSWORD`
+- `NEXT_PUBLIC_API_URL` (if not provided as variable)
+
+Permissions required for the deployer service account:
+- Artifact Registry writer
+- Cloud Build editor (or Cloud Build build + Cloud Build service account user)
+- Cloud Run admin
+- Service Account Token Creator (for WIF)
+- Cloud SQL Client
+

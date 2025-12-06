@@ -1,0 +1,156 @@
+name: Deploy to GCP
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+  ARTIFACT_REGISTRY_REPO: ${{ vars.GCP_ARTIFACT_REGISTRY_REPO || 'anirudhlabs' }}
+  FRONTEND_SERVICE: ${{ vars.GCP_FRONTEND_SERVICE || 'anirudhlabs-frontend' }}
+  CMS_SERVICE: ${{ vars.GCP_CMS_SERVICE || 'anirudhlabs-cms' }}
+  CLOUD_SQL_CONNECTION: ${{ vars.GCP_CLOUD_SQL_CONNECTION }}
+  FRONTEND_URL: ${{ vars.FRONTEND_URL || 'https://www.anirudhlabs.in' }}
+  NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || secrets.NEXT_PUBLIC_API_URL }}
+
+jobs:
+  deploy:
+    name: Build & Deploy (Cloud Run)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for workload identity federation
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP (Workload Identity)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Configure Docker auth for Artifact Registry
+        run: gcloud auth configure-docker "${{ env.REGION }}-docker.pkg.dev"
+
+      - name: Validate required env
+        run: |
+          set -euo pipefail
+          required_env=(
+            PROJECT_ID REGION ARTIFACT_REGISTRY_REPO
+            FRONTEND_SERVICE CMS_SERVICE CLOUD_SQL_CONNECTION
+            FRONTEND_URL NEXT_PUBLIC_API_URL
+            CMS_APP_KEYS CMS_API_TOKEN_SALT CMS_ADMIN_JWT_SECRET CMS_JWT_SECRET
+            DB_NAME DB_USER DB_PASSWORD
+          )
+          for key in "${required_env[@]}"; do
+            if [ -z "${!key:-}" ]; then
+              echo "Missing env/secret: $key"
+              missing=1
+            fi
+          done
+          if [ "${missing:-0}" = "1" ]; then
+            exit 1
+          fi
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          REGION: ${{ env.REGION }}
+          ARTIFACT_REGISTRY_REPO: ${{ env.ARTIFACT_REGISTRY_REPO }}
+          FRONTEND_SERVICE: ${{ env.FRONTEND_SERVICE }}
+          CMS_SERVICE: ${{ env.CMS_SERVICE }}
+          CLOUD_SQL_CONNECTION: ${{ env.CLOUD_SQL_CONNECTION }}
+          FRONTEND_URL: ${{ env.FRONTEND_URL }}
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          CMS_APP_KEYS: ${{ secrets.CMS_APP_KEYS }}
+          CMS_API_TOKEN_SALT: ${{ secrets.CMS_API_TOKEN_SALT }}
+          CMS_ADMIN_JWT_SECRET: ${{ secrets.CMS_ADMIN_JWT_SECRET }}
+          CMS_JWT_SECRET: ${{ secrets.CMS_JWT_SECRET }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+      - name: Build & push frontend image (Cloud Build)
+        run: |
+          set -euo pipefail
+          AR="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}"
+          gcloud builds submit ./frontend --tag "${AR}/frontend:latest"
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          REGION: ${{ env.REGION }}
+          ARTIFACT_REGISTRY_REPO: ${{ env.ARTIFACT_REGISTRY_REPO }}
+
+      - name: Build & push CMS image (Cloud Build)
+        run: |
+          set -euo pipefail
+          AR="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}"
+          gcloud builds submit ./cms --tag "${AR}/cms:latest"
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          REGION: ${{ env.REGION }}
+          ARTIFACT_REGISTRY_REPO: ${{ env.ARTIFACT_REGISTRY_REPO }}
+
+      - name: Deploy CMS (Cloud Run)
+        run: |
+          set -euo pipefail
+          AR="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}"
+          gcloud run deploy "${CMS_SERVICE}" \
+            --image "${AR}/cms:latest" \
+            --region "${REGION}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --add-cloudsql-instances "${CLOUD_SQL_CONNECTION}" \
+            --set-env-vars \
+              APP_KEYS="${CMS_APP_KEYS}",\
+              API_TOKEN_SALT="${CMS_API_TOKEN_SALT}",\
+              ADMIN_JWT_SECRET="${CMS_ADMIN_JWT_SECRET}",\
+              JWT_SECRET="${CMS_JWT_SECRET}",\
+              DATABASE_CLIENT=postgres,\
+              DATABASE_HOST="/cloudsql/${CLOUD_SQL_CONNECTION}",\
+              DATABASE_NAME="${DB_NAME}",\
+              DATABASE_USERNAME="${DB_USER}",\
+              DATABASE_PASSWORD="${DB_PASSWORD}",\
+              FRONTEND_URL="${FRONTEND_URL}",\
+              NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}"
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          REGION: ${{ env.REGION }}
+          ARTIFACT_REGISTRY_REPO: ${{ env.ARTIFACT_REGISTRY_REPO }}
+          CMS_SERVICE: ${{ env.CMS_SERVICE }}
+          CLOUD_SQL_CONNECTION: ${{ env.CLOUD_SQL_CONNECTION }}
+          FRONTEND_URL: ${{ env.FRONTEND_URL }}
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+          CMS_APP_KEYS: ${{ secrets.CMS_APP_KEYS }}
+          CMS_API_TOKEN_SALT: ${{ secrets.CMS_API_TOKEN_SALT }}
+          CMS_ADMIN_JWT_SECRET: ${{ secrets.CMS_ADMIN_JWT_SECRET }}
+          CMS_JWT_SECRET: ${{ secrets.CMS_JWT_SECRET }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+      - name: Deploy Frontend (Cloud Run)
+        run: |
+          set -euo pipefail
+          AR="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}"
+          gcloud run deploy "${FRONTEND_SERVICE}" \
+            --image "${AR}/frontend:latest" \
+            --region "${REGION}" \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars \
+              NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}"
+        env:
+          PROJECT_ID: ${{ env.PROJECT_ID }}
+          REGION: ${{ env.REGION }}
+          ARTIFACT_REGISTRY_REPO: ${{ env.ARTIFACT_REGISTRY_REPO }}
+          FRONTEND_SERVICE: ${{ env.FRONTEND_SERVICE }}
+          NEXT_PUBLIC_API_URL: ${{ env.NEXT_PUBLIC_API_URL }}
+
